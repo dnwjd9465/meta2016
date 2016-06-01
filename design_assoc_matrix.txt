@@ -1,0 +1,10 @@
+"design"
+"home" 0.56
+"talk" 0.53
+"brown" 0.51
+"confer" 0.51
+"play" 0.51
+"power" 0.51
+"relationship" 0.51
+"shouldnt" 0.51
+"think" 0.51

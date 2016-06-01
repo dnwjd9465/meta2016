@@ -1,0 +1,9 @@
+design	home	0.56
+design	talk	0.53
+design	brown	0.51
+design	confer	0.51
+design	play	0.51
+design	power	0.51
+design	relationship	0.51
+design	shouldnt	0.51
+design	think	0.51
