@@ -1,0 +1,146 @@
+Enter file contents here
+library(rjson) 
+library(RCurl) 
+library(tm) 
+library(SnowballC)
+
+###Set working dir path
+setwd("C:/meta2018") 
+
+json1 <-("talks_music.json") 
+json2 <-("talks_free.json") 
+json3 <-("talks_art.json") 
+json4 <-("talks_time.json") 
+
+###Read a json file to workspace 
+music<-fromJSON(file=json1, method="C") 
+free<-fromJSON(file=json2, method="C") 
+art<-fromJSON(file=json3, method="C") 
+time<-fromJSON(file=json4, method="C") 
+all_json<-c(music, free, art, time) 
+
+str(all_json) 
+
+all_names<-names(all_json$talks[[1]]$talk)  
+all_names  
+
+###Convertobject type
+all_json<-lapply(c(music$talks, free$talks, art$talks, time$talks), function(x){unlist(x)}) 
+str(all_json) 
+all<-data.frame() 
+df_all<-do.call("rbind", c(all, all_json)) 
+str(df_all) 
+
+
+df_all<-data.frame(df_all) 
+str(df_all) 
+
+###Chage datatype of talk description 
+df_all$talk.description<-as.character(df_all$talk.description) 
+str(df_all$talk.description) 
+
+###Change names of variables 
+names(df_all)<-all_names 
+str(df_all)
+
+#####Term Clustering 
+ 
+
+###Convert object type 
+class(df_all$description) 
+ted_docs <- Corpus(VectorSource(df_all$description)) 
+class(ted_docs) 
+
+###Pre-processing  
+ted_docs <- tm_map(ted_docs, tolower)  
+ted_docs <- tm_map(ted_docs, removeNumbers)  
+ted_docs <- tm_map(ted_docs, removePunctuation)  
+ted_docs <- tm_map(ted_docs, removeWords, stopwords("SMART"))  
+ted_docs <- tm_map(ted_docs, removeWords, "ted")  
+
+###Tokenizing 
+strsplit_space_tokenizer <- function(x) 
+  unlist(strsplit(as.character(x), "[[:space:]]+")) 
+#token_docs<-(sapply(ted_docs, strsplit_space_tokenizer)) 
+token_docs<-(sapply(ted_docs$content, strsplit_space_tokenizer)) 
+token_freq<-table(unlist(token_docs)) 
+summary(data.frame(token_freq)$Freq) 
+
+###Stemming 
+stem_docs <- sapply(token_docs, stemDocument) 
+stem_freq<-table(unlist(stem_docs)) 
+summary(data.frame(stem_freq)$Freq) 
+ 
+df_stem_freq<-data.frame(stem_freq) 
+str(df_stem_freq) 
+
+###Term-Doc Matrix with Stemming 
+class(stem_docs) 
+stem_docs <- Corpus(VectorSource(stem_docs)) 
+class(stem_docs) 
+
+###term weight: TfIDF 
+ted_tdm <- TermDocumentMatrix(stem_docs,  
+                       control = list(removePunctuation = TRUE,  
+                                         weighting=weightTfIdf,  
+                        stopwords = TRUE))  
+ 
+inspect(ted_tdm[1,])  
+
+#####Hierachical Clustering: Term Clustering 
+###Remove sparse terms 
+
+ted_tdm_sparse <- removeSparseTerms(ted_tdm, sparse = 0.90) 
+ted_tdm_sparse$nrow 
+ted_tdm<-ted_tdm_sparse 
+
+###Convert to matrix 
+ted_m <- as.matrix(ted_tdm) 
+
+###Calculate similarity 
+###dist {stats} Distance Matrix Computation 
+###scale {base} Scaling and Centering of Matrix-like Objects 
+distMatrix<- dist(scale(ted_m)) 
+
+###Execute hierarchial clustering 
+###hclust {stats} Hierarchical Clustering 
+###method=c("single", "complete", "average", "mcquitty", "median, "centroid", "ward.D", "ward.D2) 
+#fit <- hclust(distMatrix, method="single")
+#fit <- hclust(distMatrix, method="complete")
+#fit <- hclust(distMatrix, method="average")
+fit <- hclust(distMatrix, method="ward.D") 
+
+###Draw dendrogram 
+plot(fit) 
+
+###rect.hclust {stats} Draw Rectangles Around Hierarchical Clusters 
+###k = number of clusters 
+rect.hclust(fit, k=4) 
+
+###Save the dendrogram as PNG image file
+#png("./dendrogram_single.png", width = 1200, height=600)
+#png("./dendrogram_complete.png", width = 1280, height=720)
+#png("./dendrogram_average.png", width = 1280, height=720)
+png("./dendrogram_ward.d.png", width = 1200, height=600) 
+plot(fit)
+
+###k= number of clusters 
+rect.hclust(fit, k=4) 
+dev.off() 
+
+###Assign a cluster to a term 
+###cutree {stats} Cut a Tree into Groups of Data 
+###k= number of clusters 
+groups <- cutree(fit, k=4) 
+df_groups <- data.frame(groups) 
+str(df_groups) 
+df_groups$KWD <- rownames(df_groups) 
+str(df_groups) 
+
+###Write the clustering result to text file
+#write.table(df_groups, "./tc_result_single.txt", row.names=FALSE, col.names=TRUE, sep="\t") 
+#write.table(df_groups, "./tc_result_camplete.txt", row.names=FALSE, col.names=TRUE, sep="\t") 
+#write.table(df_groups, "./tc_result_average.txt", row.names=FALSE, col.names=TRUE, sep="\t") 
+write.table(df_groups, "./tc_result_Ward.d.txt", row.names=FALSE, col.names=TRUE, sep="\t") 
+
+ 
